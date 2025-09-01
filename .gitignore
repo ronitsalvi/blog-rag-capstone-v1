@@ -1,0 +1,87 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+venv/
+env/
+ENV/
+.env
+.venv
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Data files (too large for git)
+*.xlsx
+*.csv
+*.parquet
+*.pkl
+*.sql
+
+# Logs
+*.log
+logs/
+
+# Vector database
+app/storage/chroma/
+app/storage/*.pkl
+app/storage/*.parquet
+app/storage/*.xlsx
+
+# Temporary files
+*_temp.py
+*_test.py
+temp_*
+debug_*
+manual_*
+simple_*
+convert_*
+clean_*
+final_*
+html_*
+regex_*
+extract_*
+process_*
+quick_*
+robust_*
+sqlite_*
+
+# Documentation data
+Documentation/*.xlsx
+Documentation/*.textClipping
+
+# Keep structure files
+!app/storage/.gitkeep

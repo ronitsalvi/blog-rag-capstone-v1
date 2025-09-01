@@ -1,0 +1,47 @@
+app:
+  title: "Blog Q&A Chatbot"
+  cors_origins: 
+    - "http://localhost:3000"
+    - "http://localhost:8080"
+
+retrieval:
+  min_local_relevance: 0.36
+  top_k: 5
+  max_snippet_sentences: 3
+  chunk_size: 600
+  chunk_overlap: 120
+
+guardrails:
+  enabled: true
+  min_topic_score: 0.35
+  allowed_topics:
+    - "data science"
+    - "machine learning"
+    - "deep learning"
+    - "python programming"
+    - "pandas"
+    - "numpy"
+    - "matplotlib"
+    - "seaborn"
+    - "statistics"
+    - "sql database"
+    - "apache spark"
+    - "tableau"
+    - "power bi"
+    - "business analytics"
+    - "experiment design"
+    - "feature engineering"
+    - "data visualization"
+    - "predictive analytics"
+    - "data mining"
+    - "artificial intelligence"
+
+web_fallback:
+  enabled: true
+  provider: "duckduckgo"
+  max_results: 8
+  timeout_seconds: 10
+
+logging:
+  level: "INFO"
+  format: "json"
