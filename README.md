@@ -26,11 +26,33 @@ python3 manual_index_builder.py
 ```
 
 ### 3. Start Server
+
+**Option A: Gradio Web Interface (Recommended)**
+```bash
+python3 gradio_app.py
+```
+Visit `http://localhost:7860` for the interactive web interface.
+
+**Option B: FastAPI Server**
 ```bash
 python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8001
 ```
 
 ## Usage
+
+### Web Interface (Gradio)
+1. Open `http://localhost:7860` in your browser
+2. Type your question in the text box
+3. Adjust "Number of Results" if needed (1-10)
+4. Click "🔍 Ask Question" or press Enter
+5. View formatted response with clickable blog URLs
+
+**Features:**
+- 💡 Sample questions to get started
+- 🔗 Clickable source URLs
+- 📊 Relevance scores
+- 📝 Blog excerpts and citations
+- 🎨 Clean, responsive interface
 
 ### Terminal Testing
 ```bash
