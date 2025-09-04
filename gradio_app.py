@@ -4,8 +4,14 @@ Gradio frontend for the Blog Q&A Chatbot system.
 
 import asyncio
 import gradio as gr
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
+
 from app.retrieval import search_and_answer
 from app.models import QuestionResponse
+from app.llm_providers import AVAILABLE_PROVIDERS
 
 def format_response(response: QuestionResponse) -> str:
     """Format the chatbot response for display in Gradio."""
@@ -16,40 +22,23 @@ def format_response(response: QuestionResponse) -> str:
     # Start building the formatted response
     output = []
     
-    # Main answer
+    # Main answer (LLM-generated with inline citations)
     if response.answer:
         output.append(f"## 💡 Answer\n\n{response.answer}")
     
-    # Source information
-    if response.source:
-        output.append(f"\n## 📚 Source")
-        output.append(f"**Title**: {response.source.title}")
-        output.append(f"**URL**: [{response.source.url}]({response.source.url})")
-        output.append(f"**Relevance**: {response.source.relevance:.2f}")
-    
-    # Excerpt if available
-    if response.excerpt:
-        output.append(f"\n## 📝 Excerpt\n\n> {response.excerpt}")
-    
-    # Additional citations
-    if response.citations and len(response.citations) > 0:
-        output.append(f"\n## 🔗 Additional Sources")
-        for i, citation in enumerate(response.citations, 1):
-            output.append(f"{i}. [{citation.title}]({citation.url})")
-    
     # Fallback indicator
     if response.fallback_used:
-        output.append(f"\n## ⚠️ Fallback Used")
-        output.append("This response used web search fallback.")
+        output.append(f"\n## ⚠️ Error")
+        output.append("There was an issue generating the response.")
     
     # Policy reason if any
     if response.policy_reason:
-        output.append(f"\n## ℹ️ Policy Note")
+        output.append(f"\n## ℹ️ Note")
         output.append(response.policy_reason)
     
     return "\n".join(output)
 
-async def ask_question_async(question: str, top_k: int) -> str:
+async def ask_question_async(question: str, provider: str) -> str:
     """
     Async wrapper for the search_and_answer function.
     """
@@ -57,20 +46,20 @@ async def ask_question_async(question: str, top_k: int) -> str:
         if not question or not question.strip():
             return "❌ **Error**: Please enter a question."
         
-        response = await search_and_answer(question.strip(), top_k)
+        response = await search_and_answer(question.strip(), provider)
         return format_response(response)
         
     except Exception as e:
         return f"❌ **Error**: {str(e)}\n\nPlease try again or check that the vector index is built."
 
-def ask_question_sync(question: str, top_k: int) -> str:
+def ask_question_sync(question: str, provider: str) -> str:
     """
     Synchronous wrapper that runs the async function.
     """
     try:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-        result = loop.run_until_complete(ask_question_async(question, top_k))
+        result = loop.run_until_complete(ask_question_async(question, provider))
         loop.close()
         return result
     except Exception as e:
@@ -130,14 +119,12 @@ def create_interface():
                     max_lines=4
                 )
                 
-                # Top-k slider
-                top_k_slider = gr.Slider(
-                    minimum=1,
-                    maximum=10,
-                    value=5,
-                    step=1,
-                    label="Number of Results",
-                    info="How many blog sources to search through"
+                # LLM Provider selection
+                provider_dropdown = gr.Dropdown(
+                    choices=list(AVAILABLE_PROVIDERS.values()),
+                    value="Gemini Pro",
+                    label="LLM Provider",
+                    info="Choose the language model for answer generation"
                 )
                 
                 # Buttons
@@ -162,22 +149,31 @@ def create_interface():
         
         # Event handlers
         def clear_interface():
-            return "", 5, "👋 **Welcome!** Ask a question above to get started."
+            return "", "Gemini Pro", "👋 **Welcome!** Ask a question above to get started."
         
         def set_sample_question(question):
             return question
         
+        def map_provider_display_to_key(display_name: str) -> str:
+            """Map display name to provider key."""
+            provider_map = {v: k for k, v in AVAILABLE_PROVIDERS.items()}
+            return provider_map.get(display_name, "gemini")
+        
         # Submit on button click or Enter
+        def process_question(question, provider_display):
+            provider_key = map_provider_display_to_key(provider_display)
+            return ask_question_sync(question, provider_key)
+        
         submit_btn.click(
-            fn=ask_question_sync,
-            inputs=[question_input, top_k_slider],
+            fn=process_question,
+            inputs=[question_input, provider_dropdown],
             outputs=output_display,
             show_progress=True
         )
         
         question_input.submit(
-            fn=ask_question_sync,
-            inputs=[question_input, top_k_slider],
+            fn=process_question,
+            inputs=[question_input, provider_dropdown],
             outputs=output_display,
             show_progress=True
         )
@@ -185,7 +181,7 @@ def create_interface():
         # Clear button
         clear_btn.click(
             fn=clear_interface,
-            outputs=[question_input, top_k_slider, output_display]
+            outputs=[question_input, provider_dropdown, output_display]
         )
         
         # Sample question buttons
@@ -200,8 +196,8 @@ def create_interface():
         gr.Markdown("""
         ---
         **Data Source**: 955+ blog articles from 360DigiTMG  
-        **Search Method**: Vector similarity using sentence-transformers  
-        **Updated**: Local blog content with real-time search
+        **Search Method**: RAG (Retrieval + Generation) with LLM enhancement  
+        **Models**: Vector search + Gemini/OpenAI answer generation
         """)
     
     return interface
@@ -216,7 +212,7 @@ if __name__ == "__main__":
     print("✅ Ready! Launching Gradio interface...")
     interface.launch(
         server_name="0.0.0.0",
-        server_port=7860,
+        server_port=7861,
         share=False,
         show_error=True,
         quiet=False

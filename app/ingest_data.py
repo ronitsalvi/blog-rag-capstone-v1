@@ -35,9 +35,9 @@ def main():
     ensure_storage_dirs()
     
     try:
-        # Process SQL file with Claude
+        # Process SQL file with LLM
         processor = SQLProcessor()
-        logger.info("Starting SQL processing with Claude API...")
+        logger.info("Starting SQL processing with LLM API...")
         blogs = processor.process_sql_file(sql_file_path)
         
         # Validate data

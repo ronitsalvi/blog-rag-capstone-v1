@@ -24,7 +24,7 @@ app.add_middleware(
 @app.post("/ask", response_model=QuestionResponse)
 async def ask_question(request: QuestionRequest):
     try:
-        response = await search_and_answer(request.question, request.top_k)
+        response = await search_and_answer(request.question, request.provider)
         return response
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

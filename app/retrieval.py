@@ -9,6 +9,7 @@ import numpy as np
 from sentence_transformers import SentenceTransformer
 from .models import QuestionResponse, SourceInfo
 from .config import get_config, get_storage_path
+from .llm_providers import get_llm_provider
 
 logger = logging.getLogger(__name__)
 
@@ -100,12 +101,14 @@ class LocalRetriever:
             logger.error(f"Local search failed: {e}")
             return []
     
-    def compose_answer(self, hits: List[dict]) -> Optional[dict]:
+    async def compose_answer(self, hits: List[dict], question: str, provider: str = "gemini") -> Optional[dict]:
         """
-        Compose answer from search hits using extractive summarization.
+        Compose answer from search hits using LLM generation.
         
         Args:
             hits: List of relevant search hits
+            question: Original user question
+            provider: LLM provider to use (gemini/openai)
             
         Returns:
             Formatted response dict or None if no good hits
@@ -120,19 +123,26 @@ class LocalRetriever:
             if not merged_hits:
                 return None
             
-            # Get best hit for primary answer
+            # Get best hit for LLM context
             top_hit = merged_hits[0]
+            best_content = top_hit['content']
             
-            # Extract best sentences for answer (extractive)
-            answer_sentences = self._extract_best_sentences(
-                [hit['content'] for hit in merged_hits[:3]]
-            )
-            answer = ' '.join(answer_sentences)
+            # Collect all blog URLs for citations
+            blog_urls = []
+            for hit in merged_hits:
+                blog_info = {
+                    'title': hit['metadata']['title'],
+                    'url': hit['metadata']['url']
+                }
+                # Avoid duplicate URLs
+                if not any(existing['url'] == blog_info['url'] for existing in blog_urls):
+                    blog_urls.append(blog_info)
             
-            # Get excerpt from top chunk
-            excerpt = self._extract_excerpt(top_hit['content'])
+            # Generate answer using LLM
+            llm_provider = get_llm_provider(provider)
+            generated_answer = await llm_provider.generate_answer(question, best_content, blog_urls)
             
-            # Format source info
+            # Format source info (primary source)
             source = SourceInfo(
                 title=top_hit['metadata']['title'],
                 url=top_hit['metadata']['url'],
@@ -140,15 +150,20 @@ class LocalRetriever:
             )
             
             return {
-                "answer": answer,
-                "excerpt": excerpt,
+                "answer": generated_answer,
+                "excerpt": best_content[:200] + "..." if len(best_content) > 200 else best_content,
                 "source": source,
                 "fallback_used": False
             }
             
         except Exception as e:
             logger.error(f"Answer composition failed: {e}")
-            return None
+            return {
+                "answer": f"Sorry, I encountered an error generating the response: {str(e)}",
+                "excerpt": None,
+                "source": None,
+                "fallback_used": True
+            }
     
     def _merge_same_source_hits(self, hits: List[dict]) -> List[dict]:
         """Merge chunks from the same blog post."""
@@ -178,32 +193,6 @@ class LocalRetriever:
         merged_hits.sort(key=lambda x: x['relevance'], reverse=True)
         return merged_hits
     
-    def _extract_best_sentences(self, contents: List[str]) -> List[str]:
-        """Extract best sentences for answer composition."""
-        max_sentences = self.config['retrieval']['max_snippet_sentences']
-        
-        # Simple extractive approach: take first sentence from each top chunk
-        sentences = []
-        for content in contents[:max_sentences]:
-            # Get first sentence
-            first_sentence = content.split('.')[0].strip()
-            if first_sentence and len(first_sentence) > 10:
-                sentences.append(first_sentence + '.')
-        
-        return sentences[:max_sentences]
-    
-    def _extract_excerpt(self, content: str) -> str:
-        """Extract excerpt from content (2-3 sentences)."""
-        sentences = content.split('.')
-        
-        # Take first 2-3 meaningful sentences
-        excerpt_sentences = []
-        for sentence in sentences[:3]:
-            sentence = sentence.strip()
-            if sentence and len(sentence) > 10:
-                excerpt_sentences.append(sentence)
-        
-        return '. '.join(excerpt_sentences) + '.' if excerpt_sentences else content[:200] + '...'
 
 # Global retriever instance
 _retriever = None
@@ -215,7 +204,7 @@ def get_retriever() -> LocalRetriever:
         _retriever = LocalRetriever()
     return _retriever
 
-async def search_and_answer(question: str, top_k: int = 5) -> QuestionResponse:
+async def search_and_answer(question: str, provider: str = "gemini") -> QuestionResponse:
     """
     Main entry point for question answering.
     
@@ -228,12 +217,12 @@ async def search_and_answer(question: str, top_k: int = 5) -> QuestionResponse:
     """
     retriever = get_retriever()
     
-    # Search local content
-    hits = retriever.search(question, top_k)
+    # Search local content (fixed top_k = 3)
+    hits = retriever.search(question, top_k=3)
     
     if hits:
-        # Compose answer from local content
-        local_response = retriever.compose_answer(hits)
+        # Compose answer from local content using LLM
+        local_response = await retriever.compose_answer(hits, question, provider)
         if local_response:
             return QuestionResponse(**local_response)
     

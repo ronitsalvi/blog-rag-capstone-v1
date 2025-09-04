@@ -20,7 +20,7 @@ pyarrow>=13.0.0
 openpyxl>=3.1.2
 
 # LLM integration
-google-generativeai>=0.3.0
+google-generativeai>=0.8.0
 
 # Configuration and logging
 PyYAML>=6.0.1
@@ -28,6 +28,9 @@ structlog>=23.1.0
 
 # Frontend UI
 gradio>=4.0.0
+
+# Additional LLM providers
+openai>=1.0.0
 
 # Optional: Ollama integration
 # ollama>=0.1.0
